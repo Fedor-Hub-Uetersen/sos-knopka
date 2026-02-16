@@ -2,8 +2,8 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SOS-кнопка для семьи</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SOS Контроль</title>
     <style>
         body {
             display: flex;
@@ -12,80 +12,111 @@
             align-items: center;
             height: 100vh;
             margin: 0;
-            background-color: #000;
-            font-family: sans-serif;
+            background-color: #121212;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             color: white;
             text-align: center;
         }
 
-        /* Стиль кнопки SOS */
-        .sos-button {
-            width: 280px;
-            height: 280px;
-            background: radial-gradient(#ff4b2b, #ff416c);
-            border: 8px solid white;
-            border-radius: 50%;
-            color: white;
-            font-size: 50px;
-            font-weight: bold;
-            cursor: pointer;
-            box-shadow: 0 0 40px rgba(255, 0, 0, 0.7);
-            animation: pulse 2s infinite;
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 40px;
         }
 
-        /* Анимация пульсации, чтобы кнопку было видно */
-        @keyframes pulse {
-            0% { box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.7); }
-            70% { box-shadow: 0 0 0 30px rgba(255, 0, 0, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(255, 0, 0, 0); }
+        .btn-sos {
+            width: 220px;
+            height: 220px;
+            background: linear-gradient(145deg, #ff0000, #cc0000);
+            border: 6px solid #fff;
+            border-radius: 50%;
+            color: white;
+            font-size: 44px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 0 30px rgba(255, 0, 0, 0.6);
+            transition: 0.2s;
+        }
+
+        .btn-sos:active { transform: scale(0.9); }
+
+        .btn-ok {
+            width: 180px;
+            padding: 15px;
+            background: #25d366;
+            border: none;
+            border-radius: 30px;
+            color: white;
+            font-size: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
         }
 
         #status {
-            margin-top: 30px;
-            font-size: 20px;
-            padding: 0 20px;
+            margin-top: 20px;
+            font-size: 16px;
+            color: #aaa;
+            height: 24px;
         }
     </style>
 </head>
 <body>
 
-    <button class="sos-button" onclick="startEmergency()">SOS</button>
-    <p id="status">Нажми в экстренной ситуации</p>
+    <div class="container">
+        <button class="btn-sos" onclick="sendSOS()">SOS</button>
+        <button class="btn-ok" onclick="sendOK()">Я В ПОРЯДКЕ</button>
+        <div id="status">Выберите действие</div>
+    </div>
 
     <script>
-        const WIFE_PHONE = "+4917661566358"; // Номер жены
-        const MY_PHONE = "+4917661566343";   // Твой номер
+        const PHONE_WIFE = "4917661566358"; // Номер жены
 
-        function startEmergency() {
-            const status = document.getElementById('status');
-            
+        function sendSOS() {
+            updateStatus("🚨 Определяю координаты...");
+            getLocation((mapUrl) => {
+                const text = `🚨 СРОЧНО НУЖНА ПОМОЩЬ! Мое местоположение: ${mapUrl}`;
+                openWhatsApp(text);
+            });
+        }
+
+        function sendOK() {
+            updateStatus("✅ Отправляю статус...");
+            const text = "✅ Со мной все в порядке, не волнуйтесь!";
+            openWhatsApp(text);
+        }
+
+        function getLocation(callback) {
             if (!navigator.geolocation) {
-                status.innerText = "Ошибка: Геолокация не поддерживается";
+                updateStatus("Ошибка: GPS не поддерживается");
                 return;
             }
 
-            status.innerText = "🚨 Получаю координаты...";
-
             navigator.geolocation.getCurrentPosition(
-                (position) => {
-                    const lat = position.coords.latitude;
-                    const lon = position.coords.longitude;
-                    const mapUrl = `https://www.google.com/maps?q=${lat},${lon}`;
-                    const message = `SOS! Мне нужна помощь! Моё местоположение: ${mapUrl}`;
-
-                    status.innerText = "📍 Координаты получены. Отправляю...";
-
-                    // Попытка отправить через WhatsApp (самый удобный формат)
-                    // Если нужно именно SMS, замени 'wa.me' на 'sms:'
-                    const whatsappUrl = `https://wa.me/${WIFE_PHONE.replace('+', '')}?text=${encodeURIComponent(message)}`;
-                    
-                    window.location.href = whatsappUrl;
+                (pos) => {
+                    // ИСПРАВЛЕНО: Правильный формат строки с координатами
+                    const url = `https://www.google.com/maps?q=${pos.coords.latitude},${pos.coords.longitude}`;
+                    callback(url);
                 },
-                (error) => {
-                    status.innerText = "❌ Ошибка: Включите GPS на телефоне";
+                (err) => {
+                    updateStatus("❌ Ошибка: Включите GPS на телефоне");
+                    console.error(err);
                 },
-                { enableHighAccuracy: true }
+                { 
+                    enableHighAccuracy: true,
+                    timeout: 10000 
+                }
             );
+        }
+
+        function openWhatsApp(message) {
+            const url = `https://wa.me/${PHONE_WIFE}?text=${encodeURIComponent(message)}`;
+            window.location.href = url;
+            updateStatus("Готово!");
+        }
+
+        function updateStatus(msg) {
+            document.getElementById('status').innerText = msg;
         }
     </script>
 
